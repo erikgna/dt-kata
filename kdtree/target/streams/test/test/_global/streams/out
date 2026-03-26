@@ -1,0 +1,33 @@
+[0m[[0m[0mdebug[0m] [0m[0mRunning TaskDef(kdtree.KDTreeSpec, org.scalatest.tools.Framework$$anon$1@1fa22aa6, false, [SuiteSelector])[0m
+[0m[[0m[0minfo[0m] [0m[0m[32mKDTreeSpec:[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32mPoint[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should report correct dimensionality[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should compute squared distance correctly[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should reject empty coordinate vectors[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32mKDTree.build[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should produce Empty for an empty input[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should contain all inserted points after build[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should not report a point that was never inserted[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32mKDTree.insert[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should add a point to an empty tree[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should handle inserting a duplicate without creating a second node[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should build incrementally and match contains results[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32mKDTree.nearestNeighbor[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should return None on an empty tree[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should return the only point in a single-node tree[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should find the exact point when it is in the tree[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should find the closest point by Euclidean distance[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should work correctly in 3D[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32mKDTree.rangeSearch[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should return empty for an empty tree[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should return all points when the range covers the whole space[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should return no points when the range is empty[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should return only points strictly inside the given range[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- should include boundary points (inclusive range)[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[36mRun completed in 169 milliseconds.[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[36mTotal number of tests run: 19[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[36mSuites: completed 1, aborted 0[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[36mTests: succeeded 19, failed 0, canceled 0, ignored 0, pending 0[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32mAll tests passed.[0m[0m
+[0m[[0m[0mdebug[0m] [0m[0mPassed tests:[0m
+[0m[[0m[0mdebug[0m] [0m[0m	kdtree.KDTreeSpec[0m

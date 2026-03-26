@@ -1,0 +1,48 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuite hostname="Eriks-MacBook-Pro.local" name="kdtree.KDTreeSpec" tests="19" errors="0" failures="0" skipped="0" time="0.02" timestamp="2026-03-25T21:55:00">
+          <properties>
+      <property name="awt.toolkit" value="sun.lwawt.macosx.LWCToolkit"/><property name="java.specification.version" value="11"/><property name="sun.cpu.isalist" value=""/><property name="sun.jnu.encoding" value="UTF-8"/><property name="sun.arch.data.model" value="64"/><property name="java.vendor.url" value="https://adoptium.net/"/><property name="sun.boot.library.path" value="/Users/erik/Library/Caches/Coursier/arc/https/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.30%252B7/OpenJDK11U-jdk_aarch64_mac_hotspot_11.0.30_7.tar.gz/jdk-11.0.30+7/Contents/Home/lib"/><property name="sun.java.command" value="/Users/erik/Library/Caches/Coursier/arc/https/github.com/sbt/sbt/releases/download/v1.12.8/sbt-1.12.8.zip/sbt/bin/sbt-launch.jar test"/><property name="jdk.debug" value="release"/><property name="java.specification.vendor" value="Oracle Corporation"/><property name="java.version.date" value="2026-01-20"/><property name="java.home" value="/Users/erik/Library/Caches/Coursier/arc/https/github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.30%252B7/OpenJDK11U-jdk_aarch64_mac_hotspot_11.0.30_7.tar.gz/jdk-11.0.30+7/Contents/Home"/><property name="file.separator" value="/"/><property name="java.vm.compressedOopsMode" value="Zero based"/><property name="line.separator" value="
+"/><property name="java.specification.name" value="Java Platform API Specification"/><property name="java.vm.specification.vendor" value="Oracle Corporation"/><property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/><property name="java.runtime.version" value="11.0.30+7"/><property name="user.name" value="erik"/><property name="log4j.ignoreTCL" value="true"/><property name="file.encoding" value="UTF-8"/><property name="java.vendor.version" value="Temurin-11.0.30+7"/><property name="java.io.tmpdir" value="/var/folders/xw/pyjtmx1j1cq5ygcm3_jg3zmr0000gn/T/"/><property name="java.version" value="11.0.30"/><property name="java.vm.specification.name" value="Java Virtual Machine Specification"/><property name="java.awt.printerjob" value="sun.lwawt.macosx.CPrinterJob"/><property name="sun.os.patch.level" value="unknown"/><property name="java.library.path" value="/Users/erik/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:."/><property name="java.vendor" value="Eclipse Adoptium"/><property name="java.specification.maintenance.version" value="3"/><property name="scala.ext.dirs" value="/Users/erik/.sbt/1.0/java9-rt-ext-eclipse_adoptium_11_0_30"/><property name="sun.io.unicode.encoding" value="UnicodeBig"/><property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/><property name="gopherProxySet" value="false"/><property name="java.class.path" value="/Users/erik/Library/Caches/Coursier/arc/https/github.com/sbt/sbt/releases/download/v1.12.8/sbt-1.12.8.zip/sbt/bin/sbt-launch.jar"/><property name="java.vm.vendor" value="Eclipse Adoptium"/><property name="jline.shutdownhook" value="false"/><property name="user.timezone" value="America/Sao_Paulo"/><property name="os.name" value="Mac OS X"/><property name="java.vm.specification.version" value="11"/><property name="sun.java.launcher" value="SUN_STANDARD"/><property name="user.country" value="BR"/><property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/><property name="sun.cpu.endian" value="little"/><property name="user.home" value="/Users/erik"/><property name="user.language" value="en"/><property name="sbt.script" value="/Users/erik/Library/Caches/Coursier/arc/https/github.com/sbt/sbt/releases/download/v1.12.8/sbt-1.12.8.zip/sbt/bin/sbt"/><property name="sbt.ipcsocket.tmpdir" value="/var/folders/xw/pyjtmx1j1cq5ygcm3_jg3zmr0000gn/T/.sbt152865c0/ipcsocket"/><property name="swoval.tmpdir" value="/var/folders/xw/pyjtmx1j1cq5ygcm3_jg3zmr0000gn/T/.sbt152865c0/swoval"/><property name="java.awt.graphicsenv" value="sun.awt.CGraphicsEnvironment"/><property name="jline.esc.timeout" value="0"/><property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/><property name="path.separator" value=":"/><property name="os.version" value="26.4"/><property name="jna.nosys" value="true"/><property name="java.runtime.name" value="OpenJDK Runtime Environment"/><property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/><property name="java.vendor.url.bug" value="https://github.com/adoptium/adoptium-support/issues"/><property name="user.dir" value="/Users/erik/Documents/pocs/dt-kata/kdtree"/><property name="os.arch" value="aarch64"/><property name="java.vm.info" value="mixed mode"/><property name="java.vm.version" value="11.0.30+7"/><property name="java.class.version" value="55.0"/>
+    </properties>
+          <testcase classname="kdtree.KDTreeSpec" name="Point should report correct dimensionality" time="0.005">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="Point should compute squared distance correctly" time="0.002">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="Point should reject empty coordinate vectors" time="0.001">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.build should produce Empty for an empty input" time="0.001">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.build should contain all inserted points after build" time="0.001">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.build should not report a point that was never inserted" time="0.0">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.insert should add a point to an empty tree" time="0.0">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.insert should handle inserting a duplicate without creating a second node" time="0.0">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.insert should build incrementally and match contains results" time="0.001">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.nearestNeighbor should return None on an empty tree" time="0.0">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.nearestNeighbor should return the only point in a single-node tree" time="0.001">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.nearestNeighbor should find the exact point when it is in the tree" time="0.0">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.nearestNeighbor should find the closest point by Euclidean distance" time="0.001">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.nearestNeighbor should work correctly in 3D" time="0.0">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.rangeSearch should return empty for an empty tree" time="0.001">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.rangeSearch should return all points when the range covers the whole space" time="0.003">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.rangeSearch should return no points when the range is empty" time="0.0">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.rangeSearch should return only points strictly inside the given range" time="0.001">
+                      
+                    </testcase><testcase classname="kdtree.KDTreeSpec" name="KDTree.rangeSearch should include boundary points (inclusive range)" time="0.002">
+                      
+                    </testcase>
+          <system-out><![CDATA[]]></system-out>
+          <system-err><![CDATA[]]></system-err>
+        </testsuite>
