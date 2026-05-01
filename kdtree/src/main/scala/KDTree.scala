@@ -113,6 +113,63 @@ object KDTree:
 
     loop(tree, None)
 
+  /**
+   * Find the point with the smallest coordinate on `searchAxis` within `tree`.
+   * Returns None if the tree is empty. O(n) worst case — the minimum can live
+   * in either subtree whenever the split axis differs from `searchAxis`.
+   *
+   * Key insight: when `splitAxis == searchAxis`, every point in the right
+   * subtree is guaranteed to be greater than the pivot on that axis, so we
+   * can skip the right subtree entirely and save roughly half the work.
+   */
+  def findMin(tree: KDTree, searchAxis: Int): Option[Point] =
+    tree match
+      case KDTree.Empty => None
+      case KDTree.Node(p, splitAxis, left, right) =>
+        if splitAxis == searchAxis then
+          // Right subtree holds only values > p on this axis — prune it.
+          val leftMin = findMin(left, searchAxis)
+          Some(Seq(Some(p), leftMin).flatten.minBy(_(searchAxis)))
+        else
+          // Split is on a different axis; minimum may be anywhere.
+          val leftMin  = findMin(left, searchAxis)
+          val rightMin = findMin(right, searchAxis)
+          Some(Seq(Some(p), leftMin, rightMin).flatten.minBy(_(searchAxis)))
+
+  /**
+   * Remove `point` from the tree. No-op if the point is not present. O(log n) average.
+   *
+   * Deletion strategy for the matched node:
+   *   Leaf node          → replace with Empty.
+   *   Has right subtree  → find the minimum on this axis in the right subtree,
+   *                        promote it to the current position, then delete it
+   *                        from the right subtree recursively.
+   *   Left subtree only  → same idea, but we rotate: the left subtree becomes
+   *                        the new right subtree so the BST invariant on this
+   *                        axis is preserved (right ≥ pivot).
+   */
+  def remove(tree: KDTree, point: Point, depth: Int = 0): KDTree =
+    tree match
+      case KDTree.Empty => KDTree.Empty
+
+      case node @ KDTree.Node(p, axis, left, right) =>
+        if p == point then
+          if right != KDTree.Empty then
+            // Successor: the smallest point in the right subtree on this axis.
+            val successor = findMin(right, axis).get
+            KDTree.Node(successor, axis, left, remove(right, successor, depth + 1))
+          else if left != KDTree.Empty then
+            // No right child: borrow the left subtree's minimum and move the
+            // entire left subtree to the right slot to maintain the invariant.
+            val successor = findMin(left, axis).get
+            KDTree.Node(successor, axis, KDTree.Empty, remove(left, successor, depth + 1))
+          else
+            KDTree.Empty  // Leaf — simply drop this node.
+        else if point(axis) <= p(axis) then
+          node.copy(left  = remove(left,  point, depth + 1))
+        else
+          node.copy(right = remove(right, point, depth + 1))
+
   /** Orthogonal range search: all points with coords in [lower, upper] per dimension. */
   def rangeSearch(tree: KDTree, lower: Point, upper: Point): List[Point] =
     require(lower.k == upper.k, "lower and upper must have the same dimension")

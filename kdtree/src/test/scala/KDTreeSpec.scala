@@ -111,3 +111,67 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
     // p2(9,1) sits exactly on the boundary
     val result = KDTree.rangeSearch(tree, p2(9, 1), p2(17, 15))
     result should contain(p2(9, 1))
+
+  // ── KDTree.findMin ────────────────────────────────────────────────────────
+
+  "KDTree.findMin" should "return None on an empty tree" in:
+    KDTree.findMin(KDTree.empty, 0) shouldBe None
+
+  it should "return the only point for a single-node tree" in:
+    val tree = KDTree.build(Seq(p2(5, 3)))
+    KDTree.findMin(tree, 0) shouldBe Some(p2(5, 3))
+    KDTree.findMin(tree, 1) shouldBe Some(p2(5, 3))
+
+  it should "find the minimum along axis 0 (x)" in:
+    val tree = KDTree.build(pts2D)
+    // brute-force reference
+    val expected = pts2D.minBy(_(0))
+    KDTree.findMin(tree, 0) shouldBe Some(expected)
+
+  it should "find the minimum along axis 1 (y)" in:
+    val tree     = KDTree.build(pts2D)
+    val expected = pts2D.minBy(_(1))
+    KDTree.findMin(tree, 1) shouldBe Some(expected)
+
+  it should "work on a 3-D tree for every axis" in:
+    val points = Seq(p3(3, 1, 4), p3(1, 5, 9), p3(2, 6, 5), p3(8, 9, 7))
+    val tree   = KDTree.build(points)
+    for axis <- 0 until 3 do
+      KDTree.findMin(tree, axis) shouldBe Some(points.minBy(_(axis)))
+
+  // ── KDTree.remove ─────────────────────────────────────────────────────────
+
+  "KDTree.remove" should "return Empty when removing from an empty tree" in:
+    KDTree.remove(KDTree.empty, p2(1, 2)) shouldBe KDTree.Empty
+
+  it should "be a no-op when the point is not in the tree" in:
+    val tree    = KDTree.build(pts2D)
+    val removed = KDTree.remove(tree, p2(0, 0))
+    pts2D.foreach(pt => KDTree.contains(removed, pt) shouldBe true)
+
+  it should "remove a leaf node correctly" in:
+    // Insert a single point then remove it — tree must become Empty.
+    val tree    = KDTree.insert(KDTree.empty, p2(1, 2))
+    val removed = KDTree.remove(tree, p2(1, 2))
+    removed shouldBe KDTree.Empty
+
+  it should "remove each point without affecting the others" in:
+    val tree = KDTree.build(pts2D)
+    for target <- pts2D do
+      val removed = KDTree.remove(tree, target)
+      KDTree.contains(removed, target) shouldBe false
+      pts2D.filterNot(_ == target).foreach { pt =>
+        KDTree.contains(removed, pt) shouldBe true
+      }
+
+  it should "allow re-insertion after removal" in:
+    val tree    = KDTree.build(pts2D)
+    val target  = pts2D.head
+    val removed = KDTree.remove(tree, target)
+    val readded = KDTree.insert(removed, target)
+    KDTree.contains(readded, target) shouldBe true
+
+  it should "handle removing all points one by one" in:
+    val tree = KDTree.build(pts2D)
+    val empty = pts2D.foldLeft(tree)(KDTree.remove(_, _))
+    pts2D.foreach(pt => KDTree.contains(empty, pt) shouldBe false)

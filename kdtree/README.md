@@ -1,3 +1,5 @@
+https://medium.com/@katyayanivemula90/what-is-a-k-dimensional-tree-8265cc737d77
+
 # K-Dimensional Tree — Scala 3 Kata
 
 ## What is a K-Dimensional Tree?
