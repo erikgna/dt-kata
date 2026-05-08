@@ -17,36 +17,57 @@
  *   → TypeScript `{ ...node, left: ... }` (spread = shallow copy with override)
  */
 
+// ─── Log helpers ─────────────────────────────────────────────────────────────
+
+/** Maps an axis index to a readable letter: `0 → "X"`, `1 → "Y"`, `2 → "Z"`, else `"axisN"`. */
+const axisName = (axis: number): string => ["X", "Y", "Z"][axis] ?? `axis${axis}`;
+
+/** Formats a single point as `"(x, y, …)"`. */
+const fmtPt = (p: Point): string => `(${p.coords.join(", ")})`;
+
+/** Formats a point array as `"(x, y), (a, b), …"`, or `"(none)"` when empty. */
+const fmtPts = (pts: Point[]): string => pts.length ? pts.map(fmtPt).join(", ") : "(none)";
+
+/** Returns an indentation string of `depth * 2` spaces for log alignment. */
+const ind = (depth: number): string => "  ".repeat(depth);
+
 // ─── Point ───────────────────────────────────────────────────────────────────
 
-// A point in k-dimensional space. We use a plain number array for the coords.
+/** Point in k-dimensional space. Coordinates stored as a plain number array. */
 export interface Point {
   coords: number[];
 }
 
-// Factory function — call pt(1, 2) instead of { coords: [1, 2] } everywhere.
+/**
+ * Factory for `Point`. Prefer `pt(1, 2)` over `{ coords: [1, 2] }` at call sites.
+ * @throws if called with zero arguments — a point needs at least one dimension.
+ */
 export function pt(...coords: number[]): Point {
   if (coords.length === 0) throw new Error("Point must have at least 1 dimension");
   return { coords };
 }
 
-// Number of dimensions (also called k).
+/** Returns the number of dimensions (k) of a point. */
 export function numDims(p: Point): number {
   return p.coords.length;
 }
 
-// Get coordinate on a single axis. Mirrors Scala's `point(i)`.
+/** Returns `p`'s coordinate on the given axis. Mirrors Scala's `point(i)`. */
 function coord(p: Point, axis: number): number {
   return p.coords[axis];
 }
 
-// Squared Euclidean distance. We skip sqrt because sqrt is monotonic —
-// if A² < B² then A < B, so we can compare distances without it.
+/**
+ * Squared Euclidean distance between two points.
+ *
+ * `sqrt` is omitted because it is monotonic — `A² < B²` implies `A < B` —
+ * so distance comparisons are valid without it.
+ */
 export function distanceSq(a: Point, b: Point): number {
   return a.coords.reduce((sum, v, i) => sum + (v - b.coords[i]) ** 2, 0);
 }
 
-// Deep equality: two points are equal if every coordinate matches.
+/** Deep equality: true when every coordinate of `a` matches `b`. */
 function pointEq(a: Point, b: Point): boolean {
   return (
     a.coords.length === b.coords.length &&
@@ -66,10 +87,10 @@ export type KDTree =
   | { kind: "empty" }
   | { kind: "node"; point: Point; axis: number; left: KDTree; right: KDTree };
 
-// Singleton empty tree — one shared object is enough since it carries no data.
+/** Singleton empty tree. One shared object suffices — it carries no data. */
 export const EMPTY: KDTree = { kind: "empty" };
 
-// Node constructor — mirrors Scala's `KDTree.Node(point, axis, left, right)`.
+/** Node constructor. Mirrors Scala's `KDTree.Node(point, axis, left, right)`. */
 function makeNode(point: Point, axis: number, left: KDTree, right: KDTree): KDTree {
   return { kind: "node", point, axis, left, right };
 }
@@ -90,16 +111,25 @@ function makeNode(point: Point, axis: number, left: KDTree, right: KDTree): KDTr
  * tree (built by inserting in a bad order) degrades queries to O(n).
  */
 export function build(points: Point[], depth = 0): KDTree {
-  if (points.length === 0) return EMPTY;
+  if (points.length === 0) {
+    console.log(`${ind(depth)}[build] No points → EMPTY`);
+    return EMPTY;
+  }
 
   // depth % k cycles: 0, 1, 2, …, k-1, 0, 1, 2, … so each level of the
   // tree splits on a different axis. This is what makes it a *k*-d tree.
   const axis = depth % numDims(points[0]);
+  console.log(`${ind(depth)}[build] depth=${depth} | ${points.length} point(s): ${fmtPts(points)}`);
+  console.log(`${ind(depth)}[build] Split axis = ${axis} (${axisName(axis)})`);
 
   // We must not mutate the input array, so we spread-copy before sorting.
   const sorted = [...points].sort((a, b) => coord(a, axis) - coord(b, axis));
+  console.log(`${ind(depth)}[build] After sort by ${axisName(axis)}: ${fmtPts(sorted)}`);
 
   const mid = Math.floor(sorted.length / 2);
+  console.log(`${ind(depth)}[build] Median index=${mid} → pivot = ${fmtPt(sorted[mid])}`);
+  console.log(`${ind(depth)}[build] Left  (smaller ${axisName(axis)}): ${fmtPts(sorted.slice(0, mid))}`);
+  console.log(`${ind(depth)}[build] Right (larger  ${axisName(axis)}): ${fmtPts(sorted.slice(mid + 1))}`);
 
   return makeNode(
     sorted[mid],                              // pivot — the median point
@@ -127,16 +157,26 @@ export function insert(tree: KDTree, point: Point, depth = 0): KDTree {
   if (tree.kind === "empty") {
     // Reached a null leaf — place the new node here.
     // depth % k gives the correct split axis for this level.
-    return makeNode(point, depth % numDims(point), EMPTY, EMPTY);
+    const axis = depth % numDims(point);
+    console.log(`${ind(depth)}[insert] Hit empty slot → place ${fmtPt(point)} here (axis=${axis}/${axisName(axis)})`);
+    return makeNode(point, axis, EMPTY, EMPTY);
   }
 
   // After checking `tree.kind === "empty"`, TypeScript knows tree is the
   // node variant here, so we can destructure it safely.
   const { point: p, axis, left, right } = tree;
 
-  if (pointEq(p, point)) return tree; // duplicate — no change
+  if (pointEq(p, point)) {
+    console.log(`${ind(depth)}[insert] ${fmtPt(point)} already exists → skip (no duplicate)`);
+    return tree; // duplicate — no change
+  }
 
-  if (coord(point, axis) <= coord(p, axis)) {
+  const newCoord   = coord(point, axis);
+  const pivotCoord = coord(p, axis);
+  const goLeft     = newCoord <= pivotCoord;
+  console.log(`${ind(depth)}[insert] At node ${fmtPt(p)} | axis=${axis}(${axisName(axis)}): new[${axisName(axis)}]=${newCoord} ${goLeft ? "<=" : ">"} pivot[${axisName(axis)}]=${pivotCoord} → go ${goLeft ? "LEFT" : "RIGHT"}`);
+
+  if (goLeft) {
     // New point's coord is ≤ pivot on this axis → belongs in left subtree.
     // { ...tree, left: ... } creates a new node object with left replaced.
     // This is immutable — the original tree is untouched.
@@ -155,13 +195,24 @@ export function insert(tree: KDTree, point: Point, depth = 0): KDTree {
  * without finding the point, it's not in the tree.
  */
 export function contains(tree: KDTree, point: Point, depth = 0): boolean {
-  if (tree.kind === "empty") return false;
+  if (tree.kind === "empty") {
+    console.log(`${ind(depth)}[contains] Hit empty → ${fmtPt(point)} NOT in tree`);
+    return false;
+  }
 
   const { point: p, axis, left, right } = tree;
 
-  if (pointEq(p, point)) return true;
+  if (pointEq(p, point)) {
+    console.log(`${ind(depth)}[contains] FOUND ${fmtPt(point)}!`);
+    return true;
+  }
 
-  if (coord(point, axis) <= coord(p, axis)) {
+  const targetCoord = coord(point, axis);
+  const pivotCoord  = coord(p, axis);
+  const goLeft      = targetCoord <= pivotCoord;
+  console.log(`${ind(depth)}[contains] At node ${fmtPt(p)} | axis=${axis}(${axisName(axis)}): target[${axisName(axis)}]=${targetCoord} ${goLeft ? "<=" : ">"} pivot=${pivotCoord} → search ${goLeft ? "LEFT" : "RIGHT"}`);
+
+  if (goLeft) {
     return contains(left, point, depth + 1);
   } else {
     return contains(right, point, depth + 1);
@@ -185,10 +236,14 @@ export function contains(tree: KDTree, point: Point, depth = 0): boolean {
  *     No BST property on searchAxis at this level. The minimum could live
  *     anywhere — we must check both subtrees and the pivot.
  */
-export function findMin(tree: KDTree, searchAxis: number): Point | null {
-  if (tree.kind === "empty") return null;
+export function findMin(tree: KDTree, searchAxis: number, depth = 0): Point | null {
+  if (tree.kind === "empty") {
+    console.log(`${ind(depth)}[findMin] Empty → null`);
+    return null;
+  }
 
   const { point: p, axis, left, right } = tree;
+  console.log(`${ind(depth)}[findMin] At node ${fmtPt(p)} | split-axis=${axis}(${axisName(axis)}), search-axis=${searchAxis}(${axisName(searchAxis)})`);
 
   // Pick the smaller of two points on searchAxis, allowing null (absent child).
   const minOf = (a: Point, b: Point | null): Point =>
@@ -196,11 +251,16 @@ export function findMin(tree: KDTree, searchAxis: number): Point | null {
 
   if (axis === searchAxis) {
     // Case A: right subtree has only values > p on this axis — prune it.
-    return minOf(p, findMin(left, searchAxis));
+    console.log(`${ind(depth)}[findMin]   Case A: split axis == search axis → PRUNE right (all right values > pivot on ${axisName(searchAxis)})`);
+    const leftMin = findMin(left, searchAxis, depth + 1);
+    const result  = minOf(p, leftMin);
+    console.log(`${ind(depth)}[findMin]   Best of pivot=${fmtPt(p)} vs leftMin=${leftMin ? fmtPt(leftMin) : "null"} → ${fmtPt(result)}`);
+    return result;
   } else {
     // Case B: minimum could be anywhere — check both sides.
-    const leftMin  = findMin(left,  searchAxis);
-    const rightMin = findMin(right, searchAxis);
+    console.log(`${ind(depth)}[findMin]   Case B: split axis != search axis → check BOTH sides`);
+    const leftMin  = findMin(left,  searchAxis, depth + 1);
+    const rightMin = findMin(right, searchAxis, depth + 1);
 
     // Collapse two nullable candidates into one before comparing with p.
     const childMin =
@@ -208,7 +268,10 @@ export function findMin(tree: KDTree, searchAxis: number): Point | null {
       rightMin === null ? leftMin  :
       coord(leftMin, searchAxis) <= coord(rightMin, searchAxis) ? leftMin : rightMin;
 
-    return minOf(p, childMin);
+    const result = minOf(p, childMin);
+    console.log(`${ind(depth)}[findMin]   leftMin=${leftMin ? fmtPt(leftMin) : "null"}, rightMin=${rightMin ? fmtPt(rightMin) : "null"}, childMin=${childMin ? fmtPt(childMin) : "null"}`);
+    console.log(`${ind(depth)}[findMin]   Best of pivot=${fmtPt(p)} vs childMin → ${fmtPt(result)}`);
+    return result;
   }
 }
 
@@ -245,16 +308,22 @@ export function findMin(tree: KDTree, searchAxis: number): Point | null {
  *         *right* slot (so the invariant right ≥ pivot holds).
  */
 export function remove(tree: KDTree, point: Point, depth = 0): KDTree {
-  if (tree.kind === "empty") return EMPTY; // point not found — no-op
+  if (tree.kind === "empty") {
+    console.log(`${ind(depth)}[remove] Hit empty → ${fmtPt(point)} not found, no-op`);
+    return EMPTY; // point not found — no-op
+  }
 
   const { point: p, axis, left, right } = tree;
 
   if (pointEq(p, point)) {
     // Found the node. Apply one of the three cases above.
+    console.log(`${ind(depth)}[remove] FOUND ${fmtPt(point)}!`);
 
     if (right.kind !== "empty") {
       // Case 2: successor is the minimum of the right subtree on this axis.
       const successor = findMin(right, axis)!; // ! = we know it's non-null (right is non-empty)
+      console.log(`${ind(depth)}[remove]   Case 2: has right subtree → successor = min on ${axisName(axis)} from right subtree = ${fmtPt(successor)}`);
+      console.log(`${ind(depth)}[remove]   Replace this node's point with ${fmtPt(successor)}, then delete ${fmtPt(successor)} from right subtree`);
       return makeNode(
         successor,
         axis,
@@ -266,6 +335,8 @@ export function remove(tree: KDTree, point: Point, depth = 0): KDTree {
     if (left.kind !== "empty") {
       // Case 3: no right child — borrow from left, then rotate left → right.
       const successor = findMin(left, axis)!;
+      console.log(`${ind(depth)}[remove]   Case 3: only left subtree → successor = min on ${axisName(axis)} from left = ${fmtPt(successor)}`);
+      console.log(`${ind(depth)}[remove]   Promote ${fmtPt(successor)} here, move old left subtree to the RIGHT slot`);
       return makeNode(
         successor,
         axis,
@@ -275,11 +346,17 @@ export function remove(tree: KDTree, point: Point, depth = 0): KDTree {
     }
 
     // Case 1: leaf node — just drop it.
+    console.log(`${ind(depth)}[remove]   Case 1: leaf node (no children) → return EMPTY`);
     return EMPTY;
   }
 
   // Not the target node — keep descending.
-  if (coord(point, axis) <= coord(p, axis)) {
+  const targetCoord = coord(point, axis);
+  const pivotCoord  = coord(p, axis);
+  const goLeft      = targetCoord <= pivotCoord;
+  console.log(`${ind(depth)}[remove] At node ${fmtPt(p)} | axis=${axis}(${axisName(axis)}): target[${axisName(axis)}]=${targetCoord} ${goLeft ? "<=" : ">"} pivot=${pivotCoord} → search ${goLeft ? "LEFT" : "RIGHT"}`);
+
+  if (goLeft) {
     return { ...tree, left:  remove(left,  point, depth + 1) };
   } else {
     return { ...tree, right: remove(right, point, depth + 1) };
@@ -305,37 +382,51 @@ export function remove(tree: KDTree, point: Point, depth = 0): KDTree {
  *      Otherwise we must check the far side too.
  */
 export function nearestNeighbor(tree: KDTree, target: Point): Point | null {
+  console.log(`[NN] Looking for nearest neighbor to ${fmtPt(target)}`);
+
   // Which of two points is closer to target?
   function closer(a: Point, b: Point): Point {
     return distanceSq(a, target) <= distanceSq(b, target) ? a : b;
   }
 
-  function loop(node_: KDTree, best: Point | null): Point | null {
-    if (node_.kind === "empty") return best;
+  function loop(node_: KDTree, best: Point | null, depth: number): Point | null {
+    if (node_.kind === "empty") {
+      console.log(`${ind(depth)}[NN] Empty node → return best=${best ? fmtPt(best) : "null"}`);
+      return best;
+    }
 
     const { point: p, axis, left, right } = node_;
 
     // Update best with the current node's point.
-    const candidate = best === null ? p : closer(p, best);
+    const candidate    = best === null ? p : closer(p, best);
+    const distToCurrent = Math.sqrt(distanceSq(p, target)).toFixed(2);
+    const distToBest    = best ? Math.sqrt(distanceSq(best, target)).toFixed(2) : "∞";
+    console.log(`${ind(depth)}[NN] Visit ${fmtPt(p)} | dist-to-target=${distToCurrent} | best-so-far=${best ? fmtPt(best) : "none"} (dist=${distToBest})`);
+    if (best !== null && distanceSq(p, target) < distanceSq(best, target)) {
+      console.log(`${ind(depth)}[NN]   → NEW best: ${fmtPt(p)} is closer than ${fmtPt(best)}`);
+    }
 
     // Decide which child to visit first. Visiting the "near" child first
     // (the one on the same side as target) usually yields a good best-so-far
     // quickly, which then prunes the far side more aggressively.
-    const [near, far] =
-      coord(target, axis) <= coord(p, axis) ? [left, right] : [right, left];
+    const goLeft      = coord(target, axis) <= coord(p, axis);
+    const [near, far] = goLeft ? [left, right] : [right, left];
+    console.log(`${ind(depth)}[NN]   target[${axisName(axis)}]=${coord(target, axis)} ${goLeft ? "<=" : ">"} pivot[${axisName(axis)}]=${coord(p, axis)} → visit ${goLeft ? "LEFT" : "RIGHT"} first (near side)`);
 
-    const afterNear = loop(near, candidate);
+    const afterNear = loop(near, candidate, depth + 1);
 
     // Distance from target to the splitting hyperplane (squared, to stay
     // consistent with distanceSq — we never compare apples to oranges).
     const axisDistSq = (coord(target, axis) - coord(p, axis)) ** 2;
     const bestDistSq = afterNear === null ? Infinity : distanceSq(afterNear, target);
+    const shouldCheckFar = axisDistSq <= bestDistSq;
+    console.log(`${ind(depth)}[NN]   Hyperplane dist²=${axisDistSq.toFixed(2)} ${shouldCheckFar ? "<=" : ">"} best dist²=${bestDistSq === Infinity ? "∞" : bestDistSq.toFixed(2)} → ${shouldCheckFar ? "MUST check far side (circle crosses hyperplane)" : "PRUNE far side (best circle doesn't reach it)"}`);
 
     // Prune far side if the hyperplane is farther than our current best.
-    return axisDistSq <= bestDistSq ? loop(far, afterNear) : afterNear;
+    return shouldCheckFar ? loop(far, afterNear, depth + 1) : afterNear;
   }
 
-  return loop(tree, null);
+  return loop(tree, null, 0);
 }
 
 // ─── rangeSearch ─────────────────────────────────────────────────────────────
@@ -350,21 +441,40 @@ export function nearestNeighbor(tree: KDTree, target: Point): Point | null {
  *     (all right values are ≥ pivot > upper) → skip right.
  */
 export function rangeSearch(tree: KDTree, lower: Point, upper: Point): Point[] {
+  console.log(`[range] Searching box [${fmtPt(lower)}, ${fmtPt(upper)}]`);
+
   function inRange(p: Point): boolean {
     return p.coords.every((v, i) => v >= lower.coords[i] && v <= upper.coords[i]);
   }
 
-  function loop(node_: KDTree): Point[] {
-    if (node_.kind === "empty") return [];
+  function loop(node_: KDTree, depth: number): Point[] {
+    if (node_.kind === "empty") {
+      console.log(`${ind(depth)}[range] Empty → []`);
+      return [];
+    }
 
     const { point: p, axis, left, right } = node_;
+    const pivotVal = coord(p, axis);
+    const lowerVal = coord(lower, axis);
+    const upperVal = coord(upper, axis);
 
-    const here        = inRange(p) ? [p] : [];
-    const searchLeft  = coord(lower, axis) <= coord(p, axis) ? loop(left)  : [];
-    const searchRight = coord(upper, axis) >= coord(p, axis) ? loop(right) : [];
+    console.log(`${ind(depth)}[range] At node ${fmtPt(p)} | axis=${axis}(${axisName(axis)}): pivot=${pivotVal}, range=[${lowerVal}, ${upperVal}]`);
 
-    return [...here, ...searchLeft, ...searchRight];
+    const here = inRange(p) ? [p] : [];
+    console.log(`${ind(depth)}[range]   Pivot inside box? ${here.length ? "YES → include" : "NO → skip"}`);
+
+    const goLeft  = lowerVal <= pivotVal;
+    const goRight = upperVal >= pivotVal;
+    console.log(`${ind(depth)}[range]   Search LEFT?  lower(${lowerVal}) <= pivot(${pivotVal}) → ${goLeft  ? "YES" : "NO (PRUNE left)"}`);
+    console.log(`${ind(depth)}[range]   Search RIGHT? upper(${upperVal}) >= pivot(${pivotVal}) → ${goRight ? "YES" : "NO (PRUNE right)"}`);
+
+    const searchLeft  = goLeft  ? loop(left,  depth + 1) : [];
+    const searchRight = goRight ? loop(right, depth + 1) : [];
+
+    const found = [...here, ...searchLeft, ...searchRight];
+    if (found.length) console.log(`${ind(depth)}[range]   Collected from this subtree: ${fmtPts(found)}`);
+    return found;
   }
 
-  return loop(tree);
+  return loop(tree, 0);
 }
