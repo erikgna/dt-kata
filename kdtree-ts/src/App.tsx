@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import KDTreeCanvas from "./viz/KDTreeCanvas.js";
+import SpatialCanvas from "./viz/SpatialCanvas.js";
 import Controls from "./viz/Controls.js";
 import { useKDTree } from "./viz/useKDTree.js";
 import type { Point } from "./kdtree.js";
@@ -54,15 +55,26 @@ export default function App() {
         display: "flex", flex: 1, overflow: "hidden",
         padding: 16, gap: 14, alignItems: "flex-start",
       }}>
-        {/* Canvas */}
-        <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-          <KDTreeCanvas
-            tree={tree}
-            steps={steps}
-            stepIdx={stepIdx}
-            queryPoint={queryPoint}
-            rangeBox={rangeBox}
-          />
+        {/* Canvas area: spatial view + tree view side by side */}
+        <div style={{ flex: 1, display: "flex", gap: 12, overflow: "hidden", alignItems: "flex-start" }}>
+          <div style={{ flexShrink: 0 }}>
+            <SpatialCanvas
+              tree={tree}
+              steps={steps}
+              stepIdx={stepIdx}
+              queryPoint={queryPoint}
+              rangeBox={rangeBox}
+            />
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <KDTreeCanvas
+              tree={tree}
+              steps={steps}
+              stepIdx={stepIdx}
+              queryPoint={queryPoint}
+              rangeBox={rangeBox}
+            />
+          </div>
         </div>
 
         {/* Controls */}
