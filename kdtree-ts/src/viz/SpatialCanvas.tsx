@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { pt } from "../kdtree.js";
 import type { Point, KDTree } from "../kdtree.js";
 import type { Step } from "./types.js";
 
@@ -45,6 +46,7 @@ interface Props {
   stepIdx:    number;
   queryPoint?: Point | null;
   rangeBox?:   { lower: Point; upper: Point } | null;
+  onCanvasClick?: (point: Point) => void;
 }
 
 const AXIS_STROKE = ["#3b82f6", "#22c55e"];
@@ -64,7 +66,7 @@ const KIND_COLORS: Partial<Record<string, { fill: string; stroke: string }>> = {
   check_far:     { fill: "#1e3a8a", stroke: "#60a5fa" },
 };
 
-export default function SpatialCanvas({ tree, steps, stepIdx, queryPoint, rangeBox }: Props) {
+export default function SpatialCanvas({ tree, steps, stepIdx, queryPoint, rangeBox, onCanvasClick }: Props) {
   const W = 380, H = 380;
   const innerW = W - PAD * 2;
   const innerH = H - PAD * 2;
@@ -96,12 +98,27 @@ export default function SpatialCanvas({ tree, steps, stepIdx, queryPoint, rangeB
   const capX = (x: number) => Math.max(PAD, Math.min(W - PAD, toX(x)));
   const capY = (y: number) => Math.max(PAD, Math.min(H - PAD, toY(y)));
 
+  function handleClick(e: React.MouseEvent<SVGSVGElement>) {
+    if (!onCanvasClick) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    if (px < PAD || px > W - PAD || py < PAD || py > H - PAD) return;
+    const x = Math.round(xMin + ((px - PAD) / innerW) * rx);
+    const y = Math.round(yMin + ((H - PAD - py) / innerH) * ry);
+    onCanvasClick(pt(x, y));
+  }
+
+  const svgStyle: React.CSSProperties = {
+    background: "#0f172a", borderRadius: 10, border: "1px solid #1e293b",
+    display: "block", cursor: onCanvasClick ? "crosshair" : "default",
+  };
+
   if (points.length === 0) {
     return (
-      <svg width={W} height={H}
-        style={{ background: "#0f172a", borderRadius: 10, border: "1px solid #1e293b", display: "block" }}>
+      <svg width={W} height={H} style={svgStyle} onClick={handleClick}>
         <text x={W/2} y={H/2} textAnchor="middle" fill="#334155" fontSize={13}>
-          Spatial View — add points to begin
+          Spatial View — add points to begin (click to insert)
         </text>
       </svg>
     );
@@ -119,8 +136,7 @@ export default function SpatialCanvas({ tree, steps, stepIdx, queryPoint, rangeB
     : null;
 
   return (
-    <svg width={W} height={H}
-      style={{ background: "#0f172a", borderRadius: 10, border: "1px solid #1e293b", display: "block" }}>
+    <svg width={W} height={H} style={svgStyle} onClick={handleClick}>
 
       <text x={PAD} y={PAD - 10} fontSize={10} fill="#475569" letterSpacing={0.5}>SPATIAL VIEW</text>
 

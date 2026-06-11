@@ -9,7 +9,7 @@ import type { OperationParams } from "./viz/useKDTree.js";
 
 export default function App() {
   const {
-    tree, steps, stepIdx, playing, speed, setSpeed,
+    displayTree, steps, stepIdx, playing, speed, setSpeed,
     applyOperation, loadClassic, clearTree, addRandom,
     nextStep, prevStep, play, pause, reset,
     currentStep, currentMessage,
@@ -59,16 +59,17 @@ export default function App() {
         <div style={{ flex: 1, display: "flex", gap: 12, overflow: "hidden", alignItems: "flex-start" }}>
           <div style={{ flexShrink: 0 }}>
             <SpatialCanvas
-              tree={tree}
+              tree={displayTree}
               steps={steps}
               stepIdx={stepIdx}
               queryPoint={queryPoint}
               rangeBox={rangeBox}
+              onCanvasClick={p => handleOperation("insert", { point: p })}
             />
           </div>
           <div style={{ overflowX: "auto" }}>
             <KDTreeCanvas
-              tree={tree}
+              tree={displayTree}
               steps={steps}
               stepIdx={stepIdx}
               queryPoint={queryPoint}
