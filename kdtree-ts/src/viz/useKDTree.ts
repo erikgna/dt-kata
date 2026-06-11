@@ -106,8 +106,13 @@ export function useKDTree() {
     setPlaying(false);
   }, [tree]);
 
+  const currentStep = steps[stepIdx];
+
   return {
     tree,
+    // What canvases should draw: the snapshot recorded for the current step
+    // (mutating ops change the tree only as you step), else the committed tree.
+    displayTree: currentStep?.treeSnapshot ?? tree,
     steps,
     stepIdx,
     playing,
@@ -123,7 +128,7 @@ export function useKDTree() {
     play:     () => setPlaying(true),
     pause:    () => setPlaying(false),
     reset:    () => { setStepIdx(0); setPlaying(false); },
-    currentStep:    steps[stepIdx],
-    currentMessage: steps[stepIdx]?.message ?? "",
+    currentStep,
+    currentMessage: currentStep?.message ?? "",
   };
 }

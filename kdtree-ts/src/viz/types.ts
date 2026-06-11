@@ -1,4 +1,4 @@
-import type { Point } from "../kdtree.js";
+import type { Point, KDTree } from "../kdtree.js";
 
 export type StepKind =
   | "visit"          // arriving at a node, comparing
@@ -20,6 +20,7 @@ export type Step = {
   queryPoint?: Point;          // point being searched / inserted
   axis?: number;               // split axis at this node
   bestSoFar?: Point | null;    // NN: current best candidate
+  treeSnapshot?: KDTree;       // tree state to display at this step (mutating ops)
   message: string;             // plain-English description shown in the UI
 };
 

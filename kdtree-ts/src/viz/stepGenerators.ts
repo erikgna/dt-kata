@@ -1,4 +1,5 @@
 import type { Point, KDTree } from "../kdtree.js";
+import { EMPTY } from "../kdtree.js";
 import type { Step } from "./types.js";
 
 // ── Internal helpers (mirror kdtree.ts logic without console.log) ─────────────
@@ -10,31 +11,47 @@ const eq        = (a: Point, b: Point) =>
   a.coords.length === b.coords.length && a.coords.every((v, i) => v === b.coords[i]);
 const dSq       = (a: Point, b: Point) =>
   a.coords.reduce((s, v, i) => s + (v - b.coords[i]) ** 2, 0);
+const node      = (point: Point, axis: number, left: KDTree, right: KDTree): KDTree =>
+  ({ kind: "node", point, axis, left, right });
+
+// Pure insert (no console noise) — used to build the final-step snapshot.
+function insertPure(t: KDTree, p: Point, depth = 0): KDTree {
+  if (t.kind === "empty") return node(p, depth % p.coords.length, EMPTY, EMPTY);
+  if (eq(t.point, p)) return t;
+  const goLeft = at(p, t.axis) <= at(t.point, t.axis);
+  return goLeft
+    ? { ...t, left:  insertPure(t.left,  p, depth + 1) }
+    : { ...t, right: insertPure(t.right, p, depth + 1) };
+}
 
 // ── Insert ────────────────────────────────────────────────────────────────────
 
 export function insertSteps(tree: KDTree, point: Point): Step[] {
   const steps: Step[] = [];
+  let inserted = true;
 
-  function walk(node: KDTree, depth: number): void {
-    if (node.kind === "empty") {
+  function walk(n: KDTree, depth: number): void {
+    if (n.kind === "empty") {
       const axis = depth % point.coords.length;
       steps.push({
         kind: "insert_here",
         visitedPoint: null,
         queryPoint: point,
         axis,
+        treeSnapshot: tree,
         message: `Empty slot at depth ${depth} — inserting ${fmt(point)} here (split will be on ${axisLabel(axis)})`,
       });
       return;
     }
-    const { point: p, axis, left, right } = node;
+    const { point: p, axis, left, right } = n;
     if (eq(p, point)) {
+      inserted = false;
       steps.push({
         kind: "found",
         visitedPoint: p,
         queryPoint: point,
         axis,
+        treeSnapshot: tree,
         message: `${fmt(point)} already exists in the tree — duplicate skipped`,
       });
       return;
@@ -45,6 +62,7 @@ export function insertSteps(tree: KDTree, point: Point): Step[] {
       visitedPoint: p,
       queryPoint: point,
       axis,
+      treeSnapshot: tree,
       message:
         `At ${fmt(p)}, split on ${axisLabel(axis)}: ` +
         `${fmt(point)}[${axisLabel(axis)}] = ${at(point, axis)} ` +
@@ -54,6 +72,15 @@ export function insertSteps(tree: KDTree, point: Point): Step[] {
   }
 
   walk(tree, 0);
+  if (inserted) {
+    steps.push({
+      kind: "found",
+      visitedPoint: point,
+      queryPoint: point,
+      treeSnapshot: insertPure(tree, point),
+      message: `${fmt(point)} inserted — tree updated.`,
+    });
+  }
   return steps;
 }
 
@@ -106,84 +133,178 @@ export function containsSteps(tree: KDTree, point: Point): Step[] {
 export function removeSteps(tree: KDTree, point: Point): Step[] {
   const steps: Step[] = [];
 
-  function walk(node: KDTree, depth: number): void {
-    if (node.kind === "empty") {
+  // Narrates the findMin sub-search inside a subtree and returns the successor.
+  // `snapshot` = full tree state to display while this search runs.
+  function narrateFindMin(sub: KDTree, searchAxis: number, snapshot: KDTree, side: string): Point {
+    function go(n: KDTree): Point | null {
+      if (n.kind === "empty") return null;
+      const { point: p, axis, left, right } = n;
+      const minOf = (a: Point, b: Point | null) =>
+        b === null || at(a, searchAxis) <= at(b, searchAxis) ? a : b;
+      if (axis === searchAxis) {
+        steps.push({
+          kind: "visit",
+          visitedPoint: p,
+          axis,
+          treeSnapshot: snapshot,
+          message:
+            `findMin(${axisLabel(searchAxis)}) at ${fmt(p)}: splits on ${axisLabel(axis)} = search axis → ` +
+            `right side only has bigger ${axisLabel(searchAxis)} values, PRUNE right; check pivot + left.`,
+        });
+        return minOf(p, go(left));
+      }
+      steps.push({
+        kind: "visit",
+        visitedPoint: p,
+        axis,
+        treeSnapshot: snapshot,
+        message:
+          `findMin(${axisLabel(searchAxis)}) at ${fmt(p)}: splits on ${axisLabel(axis)} ≠ ${axisLabel(searchAxis)} → ` +
+          `min could be on either side, must check BOTH subtrees.`,
+      });
+      const lm = go(left);
+      const rm = go(right);
+      const cm =
+        lm === null ? rm :
+        rm === null ? lm :
+        at(lm, searchAxis) <= at(rm, searchAxis) ? lm : rm;
+      return minOf(p, cm);
+    }
+    const m = go(sub)!;
+    steps.push({
+      kind: "successor",
+      visitedPoint: m,
+      axis: searchAxis,
+      treeSnapshot: snapshot,
+      message: `Successor found: ${fmt(m)} has the smallest ${axisLabel(searchAxis)} in the ${side} subtree.`,
+    });
+    return m;
+  }
+
+  // Mirrors remove() recursion. `rebuild(sub)` reconstructs the FULL tree with
+  // the current subtree replaced by `sub` — lets every step carry a whole-tree
+  // snapshot, including intermediate states (successor copied = duplicate).
+  function walk(n: KDTree, target: Point, rebuild: (sub: KDTree) => KDTree): KDTree {
+    const snapshot = rebuild(n);
+    if (n.kind === "empty") {
       steps.push({
         kind: "not_found",
         visitedPoint: null,
-        queryPoint: point,
-        message: `${fmt(point)} not found in the tree — nothing to remove`,
+        queryPoint: target,
+        treeSnapshot: snapshot,
+        message: `${fmt(target)} not found in the tree — nothing to remove`,
       });
-      return;
+      return EMPTY;
     }
-    const { point: p, axis, left, right } = node;
-    if (eq(p, point)) {
+    const { point: p, axis, left, right } = n;
+
+    if (eq(p, target)) {
       if (right.kind !== "empty") {
-        const succ = findMinPoint(right, axis);
-        steps.push({
-          kind: "successor",
-          visitedPoint: p,
-          queryPoint: point,
-          axis,
-          message:
-            `Found ${fmt(p)} — has right subtree. ` +
-            `Successor = min on ${axisLabel(axis)} from right = ${succ ? fmt(succ) : "?"}. ` +
-            `Replace this node with successor, then delete successor from right.`,
-        });
-      } else if (left.kind !== "empty") {
-        const succ = findMinPoint(left, axis);
-        steps.push({
-          kind: "successor",
-          visitedPoint: p,
-          queryPoint: point,
-          axis,
-          message:
-            `Found ${fmt(p)} — only left subtree. ` +
-            `Successor = min on ${axisLabel(axis)} from left = ${succ ? fmt(succ) : "?"}. ` +
-            `Move entire left subtree to right slot (keeps invariant).`,
-        });
-      } else {
         steps.push({
           kind: "found",
           visitedPoint: p,
-          queryPoint: point,
+          queryPoint: target,
           axis,
-          message: `Found ${fmt(p)} — it is a leaf node (no children). Removing it.`,
+          treeSnapshot: snapshot,
+          message:
+            `Found ${fmt(p)} — internal node with a right subtree (case 2). ` +
+            `Can't just drop it: children would be orphaned. ` +
+            `Plan: replace it with the min on ${axisLabel(axis)} from the RIGHT subtree.`,
         });
+        const succ = narrateFindMin(right, axis, snapshot, "right");
+        const dupSnapshot = rebuild(node(succ, axis, left, right));
+        steps.push({
+          kind: "successor",
+          visitedPoint: succ,
+          queryPoint: target,
+          axis,
+          treeSnapshot: dupSnapshot,
+          message:
+            `Copy ${fmt(succ)} into the deleted node's slot. ` +
+            `It now appears TWICE — next, recursively delete the duplicate from the right subtree.`,
+        });
+        const newRight = walk(right, succ, sub => rebuild(node(succ, axis, left, sub)));
+        return node(succ, axis, left, newRight);
       }
-      return;
+
+      if (left.kind !== "empty") {
+        steps.push({
+          kind: "found",
+          visitedPoint: p,
+          queryPoint: target,
+          axis,
+          treeSnapshot: snapshot,
+          message:
+            `Found ${fmt(p)} — only a LEFT subtree (case 3). ` +
+            `Left values are ≤ pivot, so they can't stay on the left under a new pivot. ` +
+            `Plan: promote min on ${axisLabel(axis)} from the left, move the rest to the RIGHT slot.`,
+        });
+        const succ = narrateFindMin(left, axis, snapshot, "left");
+        const dupSnapshot = rebuild(node(succ, axis, EMPTY, left));
+        steps.push({
+          kind: "successor",
+          visitedPoint: succ,
+          queryPoint: target,
+          axis,
+          treeSnapshot: dupSnapshot,
+          message:
+            `Promote ${fmt(succ)}; old left subtree moves to the RIGHT slot ` +
+            `(every value there is ≥ new pivot on ${axisLabel(axis)} — invariant holds). ` +
+            `${fmt(succ)} appears twice — recursively delete the duplicate.`,
+        });
+        const newRight = walk(left, succ, sub => rebuild(node(succ, axis, EMPTY, sub)));
+        return node(succ, axis, EMPTY, newRight);
+      }
+
+      steps.push({
+        kind: "found",
+        visitedPoint: p,
+        queryPoint: target,
+        axis,
+        treeSnapshot: snapshot,
+        message: `Found ${fmt(p)} — leaf node, no children (case 1). Just remove it.`,
+      });
+      steps.push({
+        kind: "found",
+        visitedPoint: null,
+        queryPoint: target,
+        treeSnapshot: rebuild(EMPTY),
+        message: `${fmt(p)} removed.`,
+      });
+      return EMPTY;
     }
-    const goLeft = at(point, axis) <= at(p, axis);
+
+    const goLeft = at(target, axis) <= at(p, axis);
     steps.push({
       kind: goLeft ? "go_left" : "go_right",
       visitedPoint: p,
-      queryPoint: point,
+      queryPoint: target,
       axis,
+      treeSnapshot: snapshot,
       message:
         `At ${fmt(p)}, split on ${axisLabel(axis)}: ` +
-        `target[${axisLabel(axis)}] = ${at(point, axis)} ` +
+        `target[${axisLabel(axis)}] = ${at(target, axis)} ` +
         `${goLeft ? "≤" : ">"} pivot ${at(p, axis)} → go ${goLeft ? "LEFT" : "RIGHT"}`,
     });
-    walk(goLeft ? left : right, depth + 1);
+    if (goLeft) {
+      const newLeft = walk(left, target, sub => rebuild(node(p, axis, sub, right)));
+      return node(p, axis, newLeft, right);
+    }
+    const newRight = walk(right, target, sub => rebuild(node(p, axis, left, sub)));
+    return node(p, axis, left, newRight);
   }
 
-  walk(tree, 0);
+  const finalTree = walk(tree, point, sub => sub);
+  if (!steps.some(s => s.kind === "not_found")) {
+    steps.push({
+      kind: "found",
+      visitedPoint: null,
+      queryPoint: point,
+      treeSnapshot: finalTree,
+      message: `Remove complete — ${fmt(point)} deleted, all KD-tree invariants intact.`,
+    });
+  }
   return steps;
-}
-
-function findMinPoint(tree: KDTree, searchAxis: number): Point | null {
-  if (tree.kind === "empty") return null;
-  const { point: p, axis, left, right } = tree;
-  const minOf = (a: Point, b: Point | null) =>
-    b === null || at(a, searchAxis) <= at(b, searchAxis) ? a : b;
-  if (axis === searchAxis) return minOf(p, findMinPoint(left, searchAxis));
-  const lm = findMinPoint(left, searchAxis);
-  const rm = findMinPoint(right, searchAxis);
-  const cm =
-    lm === null ? rm :
-    rm === null ? lm :
-    at(lm, searchAxis) <= at(rm, searchAxis) ? lm : rm;
-  return minOf(p, cm);
 }
 
 // ── FindMin ───────────────────────────────────────────────────────────────────
