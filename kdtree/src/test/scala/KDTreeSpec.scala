@@ -1,15 +1,21 @@
 package kdtree
 
+// ScalaTest is the testing library. We use two pieces of it:
+//   AnyFlatSpec — lets us write tests as readable sentences: "X" should "do Y" in: ...
+//   Matchers    — gives us words like shouldBe to check results.
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+// "extends ... with ..." means this class gets the features of both.
 class KDTreeSpec extends AnyFlatSpec with Matchers:
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
+  // Short helpers to build points: p2 for 2D, p3 for 3D. Saves typing Point(...) everywhere.
   def p2(x: Double, y: Double): Point = Point(x, y)
   def p3(x: Double, y: Double, z: Double): Point = Point(x, y, z)
 
+  // A fixed set of 2D points reused across many tests.
   val pts2D: Seq[Point] = Seq(
     p2(3, 6), p2(17, 15), p2(13, 15), p2(6, 12),
     p2(9, 1), p2(2, 7), p2(10, 19)
@@ -17,7 +23,10 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
 
   // ── Point ─────────────────────────────────────────────────────────────────
 
+  // Each test reads like a sentence. The code after "in:" runs; if a shouldBe
+  // check fails, the test fails. "it" reuses the subject from the line above ("Point").
   "Point" should "report correct dimensionality" in:
+    // shouldBe checks the left value equals the right one.
     p2(1, 2).k shouldBe 2
     p3(1, 2, 3).k shouldBe 3
 
@@ -26,6 +35,7 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
     p2(1, 1).distanceSqTo(p2(1, 1)) shouldBe 0.0
 
   it should "reject empty coordinate vectors" in:
+    // Checks that running Point(Vector.empty) throws this error (the require in Point).
     an[IllegalArgumentException] should be thrownBy Point(Vector.empty)
 
   // ── KDTree.build ──────────────────────────────────────────────────────────
@@ -35,6 +45,7 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
 
   it should "contain all inserted points after build" in:
     val tree = KDTree.build(pts2D)
+    // foreach runs the check once per point: every point must be found in the tree.
     pts2D.foreach(pt => KDTree.contains(tree, pt) shouldBe true)
 
   it should "not report a point that was never inserted" in:
@@ -50,10 +61,13 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
   it should "handle inserting a duplicate without creating a second node" in:
     val t1 = KDTree.build(pts2D)
     val t2 = KDTree.insert(t1, pts2D.head)
-    // the tree structure should be identical (same root node reference)
+    // Inserting a point that already exists changes nothing, so the trees are equal.
     t1 shouldBe t2
 
   it should "build incrementally and match contains results" in:
+    // foldLeft starts with an empty tree and inserts each point one at a time,
+    // feeding the growing tree into the next insert. The two _ are insert's
+    // arguments: the tree so far and the next point.
     val tree = pts2D.foldLeft(KDTree.empty)(KDTree.insert(_, _))
     pts2D.foreach(pt => KDTree.contains(tree, pt) shouldBe true)
 
@@ -73,7 +87,8 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
   it should "find the closest point by Euclidean distance" in:
     val tree   = KDTree.build(pts2D)
     val target = p2(10, 12)
-    // brute-force reference
+    // Work out the right answer the slow-but-obvious way: minBy scans every point
+    // and keeps the one with the smallest distance. We then check the tree agrees.
     val expected = pts2D.minBy(_.distanceSqTo(target))
     KDTree.nearestNeighbor(tree, target) shouldBe Some(expected)
 
@@ -92,6 +107,7 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
   it should "return all points when the range covers the whole space" in:
     val tree   = KDTree.build(pts2D)
     val result = KDTree.rangeSearch(tree, p2(-1000, -1000), p2(1000, 1000))
+    // toSet ignores order and duplicates, so we compare contents not arrangement.
     result.toSet shouldBe pts2D.toSet
 
   it should "return no points when the range is empty" in:
@@ -102,13 +118,14 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
   it should "return only points strictly inside the given range" in:
     val tree   = KDTree.build(pts2D)
     val result = KDTree.rangeSearch(tree, p2(0, 0), p2(10, 10))
-    // brute-force reference
+    // The slow reference answer: filter keeps only the points inside the box by hand.
     val expected = pts2D.filter(p => p(0) >= 0 && p(0) <= 10 && p(1) >= 0 && p(1) <= 10)
     result.toSet shouldBe expected.toSet
 
   it should "include boundary points (inclusive range)" in:
     val tree   = KDTree.build(pts2D)
     // p2(9,1) sits exactly on the boundary
+    // should contain checks the result list includes this point.
     val result = KDTree.rangeSearch(tree, p2(9, 1), p2(17, 15))
     result should contain(p2(9, 1))
 
@@ -136,6 +153,7 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
   it should "work on a 3-D tree for every axis" in:
     val points = Seq(p3(3, 1, 4), p3(1, 5, 9), p3(2, 6, 5), p3(8, 9, 7))
     val tree   = KDTree.build(points)
+    // Loop over axes 0, 1, 2 and check findMin against the slow minBy answer each time.
     for axis <- 0 until 3 do
       KDTree.findMin(tree, axis) shouldBe Some(points.minBy(_(axis)))
 
@@ -157,9 +175,11 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
 
   it should "remove each point without affecting the others" in:
     val tree = KDTree.build(pts2D)
+    // For each point: remove it, confirm it's gone, and confirm every OTHER point stays.
     for target <- pts2D do
       val removed = KDTree.remove(tree, target)
       KDTree.contains(removed, target) shouldBe false
+      // filterNot keeps every point except the one we removed.
       pts2D.filterNot(_ == target).foreach { pt =>
         KDTree.contains(removed, pt) shouldBe true
       }
@@ -173,5 +193,6 @@ class KDTreeSpec extends AnyFlatSpec with Matchers:
 
   it should "handle removing all points one by one" in:
     val tree = KDTree.build(pts2D)
+    // foldLeft removes each point in turn, passing the shrinking tree forward.
     val empty = pts2D.foldLeft(tree)(KDTree.remove(_, _))
     pts2D.foreach(pt => KDTree.contains(empty, pt) shouldBe false)
